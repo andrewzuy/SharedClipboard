@@ -93,7 +93,7 @@ pub mod aes_encryption{
 	while slice_index > 0 && input[slice_index] == 0u8 {
 	    slice_index-=1;
 	}
-	input.truncate(slice_index);
+	input.truncate(slice_index + 1);
     }
 
     fn block_cipher_decrypt(output: &mut [u8], cipher: &Aes256, prev_block: &[u8], input: &[u8]) {
