@@ -1,7 +1,5 @@
-use std::{fs, string};
+use std::{fs};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use std::ops::{Deref, DerefMut};
-use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use serde::{Serialize, Deserialize};
 use actix_web::{get, post, web, App, HttpRequest, HttpResponse, HttpServer, Responder, HttpMessage};
@@ -10,7 +8,6 @@ use actix_web::error::ParseError::Header;
 use actix_web::http::header::{HeaderName, HeaderValue};
 use actix_web::http::StatusCode;
 use futures::StreamExt;
-use awc::Client;
 mod aes_encryption;
 
 #[derive(Debug, Deserialize)]

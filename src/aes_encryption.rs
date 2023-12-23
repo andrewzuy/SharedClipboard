@@ -83,9 +83,17 @@ pub mod aes_encryption{
                     output[i * 16..(i + 1) * 16].copy_from_slice(&decrypted_block);
                 }
             }
+	    remove_padding(&mut output);
             Message::new(output)
         }
+    }
 
+    fn remove_padding(input:&mut Vec<u8>){
+	let mut slice_index = input.len() - 1;
+	while slice_index > 0 && input[slice_index] == 0u8 {
+	    slice_index-=1;
+	}
+	input.truncate(slice_index);
     }
 
     fn block_cipher_decrypt(output: &mut [u8], cipher: &Aes256, prev_block: &[u8], input: &[u8]) {

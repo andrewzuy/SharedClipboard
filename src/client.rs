@@ -4,13 +4,10 @@ extern crate clipboard;
 use clipboard::ClipboardProvider;
 use clipboard::ClipboardContext;
 use std::{fs, thread,time};
-use std::net::SocketAddr;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize};
 use reqwest::blocking::Client;
 mod aes_encryption;
-use aes_encryption::aes_encryption::get_key;
 use std::fs::File;
-use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 use crate::aes_encryption::aes_encryption::{AesEngine, Message, FileMessage};
@@ -206,12 +203,6 @@ fn main() -> std::io::Result<()> {
     let config = fs::read_to_string("config.json")
         .expect("Should have been able to read the file");
     let conf:Config =  serde_json::from_str(&config).unwrap();
-    let token = conf.Token.clone();
-    let host = conf.Host.clone();
-    let passkey = conf.Passkey.clone();
-    let socket_address:SocketAddr = host.parse().unwrap();
-    let clip_value = Arc::new(Mutex::new(String::new()));
-    let clip_value_copy = Arc::clone(&clip_value);
     let config_mutex = Arc::new(Mutex::new(conf.clone()));
     let config_mutex_copy = Arc::clone(&config_mutex);
     let http_client = Client::new();
