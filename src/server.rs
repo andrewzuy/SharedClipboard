@@ -22,7 +22,6 @@ struct Shared_State{
     Text: Mutex<Vec<u8>>,
     Text_Hash: Mutex<String>,
     File: Mutex<Vec<u8>>,
-    File_Hash: Mutex<String>,
     File_Name: Mutex<String>
 }
 
@@ -91,7 +90,7 @@ async fn text_post(_req: HttpRequest, mut body: web::Payload ,shared_state: web:
 #[get("/file_get")]
 async fn file_get(_req: HttpRequest, shared_state: web::Data<Shared_State>) -> HttpResponse {
     let headers = _req.headers().clone();
-    let mut expected_token = shared_state.Token.lock().unwrap();
+    let expected_token = shared_state.Token.lock().unwrap();
     let file = shared_state.File.lock().unwrap().clone();
     if !headers.contains_key("TOKEN") {
         return reply_with_status_code(StatusCode::UNAUTHORIZED)
@@ -107,27 +106,10 @@ async fn file_get(_req: HttpRequest, shared_state: web::Data<Shared_State>) -> H
     }
 }
 
-#[get("/file_hash")]
-async fn file_hash(_req: HttpRequest, shared_state: web::Data<Shared_State>) -> HttpResponse {
-    let headers = _req.headers().clone();
-    let mut expected_token = shared_state.Token.lock().unwrap();
-    if !headers.contains_key("TOKEN") {
-        return reply_with_status_code(StatusCode::UNAUTHORIZED)
-    } else{
-        if headers.get("TOKEN").unwrap().eq(&expected_token.to_string().clone()){
-            let responder = HttpResponse::Ok()
-                .insert_header(("HASH", shared_state.File_Hash.lock().unwrap().clone()))
-                .body("");
-            return  responder
-        }
-        return reply_with_status_code(StatusCode::EXPECTATION_FAILED)
-    }
-}
-
 #[post("/file_post")]
 async fn file_post(_req: HttpRequest, mut body: web::Payload ,shared_state: web::Data<Shared_State>) -> HttpResponse {
     let headers = _req.headers().clone();
-    let mut expected_token = shared_state.Token.lock().unwrap();
+    let expected_token = shared_state.Token.lock().unwrap();
     if !headers.contains_key("TOKEN") {
         return reply_with_status_code(StatusCode::UNAUTHORIZED)
     } else{
@@ -137,13 +119,16 @@ async fn file_post(_req: HttpRequest, mut body: web::Payload ,shared_state: web:
                 let item = item.unwrap();
                 bytes.extend_from_slice(&item);
             }
-        //  shared_state.File_Hash.lock().unwrap().clear();
-        //  shared_state.File_Hash.lock().unwrap().push_str(headers.get("HASH").unwrap().to_str().unwrap());
-            shared_state.File_Name.lock().unwrap().clear();
-            shared_state.File_Name.lock().unwrap().push_str(headers.get("FILENAME").unwrap().to_str().unwrap());
-            shared_state.File.lock().unwrap().clear();
-            shared_state.File.lock().unwrap().extend_from_slice( &bytes);
-            return  reply_with_status_code(StatusCode::OK)
+	    match headers.get("FILENAME"){
+	    Some(filename) => {
+		shared_state.File_Name.lock().unwrap().clear();
+		shared_state.File_Name.lock().unwrap().push_str(filename.to_str().unwrap());
+		shared_state.File.lock().unwrap().clear();
+		shared_state.File.lock().unwrap().extend_from_slice(&bytes);
+		return  reply_with_status_code(StatusCode::OK)
+	    },
+	    None => return reply_with_status_code(StatusCode::EXPECTATION_FAILED)
+	    }
         }
         return reply_with_status_code(StatusCode::EXPECTATION_FAILED)
     }
@@ -168,7 +153,6 @@ async fn main() -> std::io::Result<()> {
             Text: Mutex::new(vec![]),
             File: Mutex::new(vec![]),
             Text_Hash: Mutex::new(String::new()),
-            File_Hash: Mutex::new(String::new()),
             File_Name: Mutex::new(String::new()),
         });
     HttpServer::new(move || {
