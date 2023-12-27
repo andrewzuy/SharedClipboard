@@ -110,6 +110,7 @@ fn watch_clipboard(config:Arc<Mutex<Config>>, client:Arc<Client>){
 		let new_remote_hash = get_text_hash(config.clone(), client.clone());
 		if new_remote_hash != prev_remote_clipboard_hash{
 		    let encrypted_text = get_text(config.clone(), client.clone());
+		    let local_clip_message = Message::new(Vec::new());
 		    let decrypted_text = local_clip_message.decrypt_aes_256_cbc(encrypted_text.clone(), &key);
 		    temp_vec = encrypted_text.clone();
 		    match String::from_utf8(decrypted_text.value){
@@ -118,9 +119,8 @@ fn watch_clipboard(config:Arc<Mutex<Config>>, client:Arc<Client>){
 		    }
 		    prev_remote_clipboard_hash = new_remote_hash;
 	    } // eprintln!("Error getting clipboard: {}", err)
+	}	
 	}
-
-		
     }
 }
 
@@ -210,7 +210,7 @@ fn form_url(conf: Arc<Mutex<Config>>, endpoint:&str) -> String {
     result
 }
 
-fn main() -> std::io::Result<()> {
+fn main() {
     let config = fs::read_to_string("config.json")
         .expect("Should have been able to read the file");
     let conf:Config =  serde_json::from_str(&config).unwrap();
@@ -223,5 +223,4 @@ fn main() -> std::io::Result<()> {
     let _clip_task = thread::spawn(move ||{watch_clipboard(config_mutex_copy, client_arc_copy)});
     scan_task.join().unwrap();
     _clip_task.join().unwrap();
-    Ok(())
 }
