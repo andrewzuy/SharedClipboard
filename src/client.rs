@@ -204,9 +204,12 @@ fn get_file(conf: Arc<Mutex<Config>>, client:Arc<Client>) -> FileMessage {
 
 fn form_url(conf: Arc<Mutex<Config>>, endpoint:&str) -> String {
     let mut result = String::new();
-    result.push_str("http://");
-    result.push_str(&conf.lock().unwrap().Host);
-        result.push_str(endpoint);
+    let host = &conf.lock().unwrap().Host.clone();
+    if !host.contains("://"){
+	result.push_str("http://");
+    }
+    result.push_str(host);
+    result.push_str(endpoint);
     result
 }
 
@@ -216,7 +219,8 @@ fn main() {
     let conf:Config =  serde_json::from_str(&config).unwrap();
     let config_mutex = Arc::new(Mutex::new(conf.clone()));
     let config_mutex_copy = Arc::clone(&config_mutex);
-    let http_client = Client::new();
+    let http_client = Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    //let http_client = Client::new();
     let client_arc = Arc::new(http_client);
     let client_arc_copy = Arc::clone(&client_arc);
     let scan_task = thread::spawn(move || {tui_scan(Arc::clone(&config_mutex.clone()), Arc::clone(&client_arc.clone()))}) ;
