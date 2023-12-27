@@ -106,7 +106,18 @@ fn watch_clipboard(config:Arc<Mutex<Config>>, client:Arc<Client>){
 		}
 
 	    },
-	    Err(err) => eprintln!("Error getting clipboard: {}", err)
+	    Err(_) => {
+		let new_remote_hash = get_text_hash(config.clone(), client.clone());
+		if new_remote_hash != prev_remote_clipboard_hash{
+		    let encrypted_text = get_text(config.clone(), client.clone());
+		    let decrypted_text = local_clip_message.decrypt_aes_256_cbc(encrypted_text.clone(), &key);
+		    temp_vec = encrypted_text.clone();
+		    match String::from_utf8(decrypted_text.value){
+			Ok(str) =>  ctx.set_contents(str).unwrap(),
+			Err(err) => eprintln!("failed to parse decrypted text, {}", err) 
+		    }
+		    prev_remote_clipboard_hash = new_remote_hash;
+	    } // eprintln!("Error getting clipboard: {}", err)
 	}
 
 		

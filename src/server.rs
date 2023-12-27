@@ -9,6 +9,7 @@ use actix_web::http::header::{HeaderName, HeaderValue};
 use actix_web::http::StatusCode;
 use futures::StreamExt;
 mod aes_encryption;
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 
 #[derive(Debug, Deserialize)]
 struct Config{
@@ -28,7 +29,7 @@ struct Shared_State{
 #[get("/text_hash")]
 async fn text_hash(_req: HttpRequest, shared_state: web::Data<Shared_State>) -> HttpResponse {
     let headers = _req.headers().clone();
-    let mut expected_token = shared_state.Token.lock().unwrap().to_string().clone();
+    let mut expected_token = shared_state.Token.try_lock().unwrap().to_string().clone();
     if !headers.contains_key("TOKEN") {
         return reply_with_status_code(StatusCode::UNAUTHORIZED)
     } else{
@@ -45,7 +46,7 @@ async fn text_hash(_req: HttpRequest, shared_state: web::Data<Shared_State>) -> 
 #[get("/text_get")]
 async fn text_get(_req: HttpRequest, shared_state: web::Data<Shared_State>) -> HttpResponse {
     let headers = _req.headers().clone();
-    let mut expected_token = shared_state.Token.lock().unwrap();
+    let mut expected_token = shared_state.Token.try_lock().unwrap();
     let message = shared_state.Text.lock().unwrap().clone();
     if !headers.contains_key("TOKEN") {
         return reply_with_status_code(StatusCode::UNAUTHORIZED)
@@ -64,7 +65,7 @@ async fn text_get(_req: HttpRequest, shared_state: web::Data<Shared_State>) -> H
 #[post("/text_post")]
 async fn text_post(_req: HttpRequest, mut body: web::Payload ,shared_state: web::Data<Shared_State>) -> HttpResponse {
     let headers = _req.headers().clone();
-    let expected_token = shared_state.Token.lock().unwrap();
+    let expected_token = shared_state.Token.try_lock().unwrap();
     if !headers.contains_key("TOKEN") {
         return reply_with_status_code(StatusCode::UNAUTHORIZED)
     } else{
@@ -90,7 +91,7 @@ async fn text_post(_req: HttpRequest, mut body: web::Payload ,shared_state: web:
 #[get("/file_get")]
 async fn file_get(_req: HttpRequest, shared_state: web::Data<Shared_State>) -> HttpResponse {
     let headers = _req.headers().clone();
-    let expected_token = shared_state.Token.lock().unwrap();
+    let expected_token = shared_state.Token.try_lock().unwrap();
     let file = shared_state.File.lock().unwrap().clone();
     if !headers.contains_key("TOKEN") {
         return reply_with_status_code(StatusCode::UNAUTHORIZED)
@@ -109,7 +110,7 @@ async fn file_get(_req: HttpRequest, shared_state: web::Data<Shared_State>) -> H
 #[post("/file_post")]
 async fn file_post(_req: HttpRequest, mut body: web::Payload ,shared_state: web::Data<Shared_State>) -> HttpResponse {
     let headers = _req.headers().clone();
-    let expected_token = shared_state.Token.lock().unwrap();
+    let expected_token = shared_state.Token.try_lock().unwrap();
     if !headers.contains_key("TOKEN") {
         return reply_with_status_code(StatusCode::UNAUTHORIZED)
     } else{
@@ -147,7 +148,7 @@ async fn main() -> std::io::Result<()> {
     let token = conf.Token.clone();
     let host = conf.Host.clone();
     let socket_address:SocketAddr = host.parse().unwrap();
-    let mut shared_state = web::Data::new(
+    let shared_state = web::Data::new(
         Shared_State {
             Token: Mutex::new(token.clone()),
             Text: Mutex::new(vec![]),
@@ -155,16 +156,47 @@ async fn main() -> std::io::Result<()> {
             Text_Hash: Mutex::new(String::new()),
             File_Name: Mutex::new(String::new()),
         });
-    HttpServer::new(move || {
-        App::new()
-            .app_data(shared_state.clone())
-            .service(text_hash)
-            .service(text_get)
-            .service(text_post)
-            .service(file_post)
-            .service(file_get)
-    })
-        .bind(socket_address)?
-        .run()
-        .await
+    
+    let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+
+    let res = builder.set_private_key_file("key.pem", SslFiletype::PEM);
+    match res{
+	Ok(_) => {
+	    let cert_res = builder.set_certificate_chain_file("cert.pem");
+	    match cert_res{
+		Ok(_) => {
+	      HttpServer::new(move || {
+		  App::new()
+		      .app_data(shared_state.clone())
+		      .service(text_hash)
+		      .service(text_get)
+		      .service(text_post)
+		      .service(file_post)
+		      .service(file_get)
+	      })
+		.bind_openssl(socket_address, builder).unwrap()
+		.run()
+		.await;
+		    
+		},
+		Err(_) => ()
+	    }
+	},
+	Err(_) => {
+	      HttpServer::new(move || {
+		  App::new()
+		      .app_data(shared_state.clone())
+		      .service(text_hash)
+		      .service(text_get)
+		      .service(text_post)
+		      .service(file_post)
+		      .service(file_get)
+	      })
+		.bind(socket_address).unwrap()
+		.run()
+		.await;
+	}
+    }
+    let res = Ok(());
+    res
 }
