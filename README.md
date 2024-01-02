@@ -22,6 +22,6 @@ The token should be the same on server and clients. It's not an encryption key -
 * The `Passkey` parameter in the `client_config.json` file is used to generate AES key, so keep it safe.
 
  ## Usage
- * Add your settings into `config.json` file
+ * Add your settings into `server_config.json` and `client_config.json` files
  * Run server app on server
  * Run client app on client
