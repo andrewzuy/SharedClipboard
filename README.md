@@ -1,21 +1,25 @@
 # Tool for securely synchronizing clipboards of different devices
 
 ## Configuration
+### client_config.json
 ```json
 {
-  "Host":"127.0.0.1:6969",
-  "Token":"ExampleAccessToken",
+  "Host":"https://localhost:6969",
+  "Token":"58ef27a7-5777-4bf9-8a64-08115bdf72cc",
   "Passkey":"PasswordForAESEncryption"
 }
 ```
 
-* Host:
-  Server - it should be 0.0.0.0:{port} <br/>
-  Client(s) - it should be {serverip}:{port}
-* Token - `should be the same` on server and client
-* Passkey:
-  Server - it `should be empty` string <br/>
-  Client(s) - it `should contain a secret`
+### server_config.json
+```json
+{
+  "Host":"0.0.0.0:6969",
+  "Token":"58ef27a7-5777-4bf9-8a64-08115bdf72cc"
+}
+```
+* As per token - it could be generated using `uuidgen` command in Linux or it can be generated manually.
+The token should be the same on server and clients. It's not an encryption key - it's for authorization purpose only.
+* The `Passkey` parameter in the `client_config.json` file is used to generate AES key, so keep it safe.
 
  ## Usage
  * Add your settings into `config.json` file
