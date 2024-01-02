@@ -25,3 +25,4 @@ The token should be the same on server and clients. It's not an encryption key -
  * Add your settings into `server_config.json` and `client_config.json` files
  * Run server app on server
  * Run client app on client
+![tui](https://github.com/andrewzuy/SharedClipboard/assets/25224814/ef8b36a7-f177-4da6-9854-88f467ead7a1)
