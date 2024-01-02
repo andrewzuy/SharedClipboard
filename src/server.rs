@@ -14,8 +14,7 @@ use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 #[derive(Debug, Deserialize)]
 struct Config{
     Host:String,
-    Token:String,
-    Passkey:String
+    Token:String
 }
 
 struct Shared_State{
@@ -87,7 +86,6 @@ async fn text_post(_req: HttpRequest, mut body: web::Payload ,shared_state: web:
     }
 }
 
-//------------------------
 #[get("/file_get")]
 async fn file_get(_req: HttpRequest, shared_state: web::Data<Shared_State>) -> HttpResponse {
     let headers = _req.headers().clone();
@@ -134,7 +132,6 @@ async fn file_post(_req: HttpRequest, mut body: web::Payload ,shared_state: web:
         return reply_with_status_code(StatusCode::EXPECTATION_FAILED)
     }
 }
-//------------------------
 
 fn reply_with_status_code(http_code:StatusCode) -> HttpResponse{
     HttpResponse::new(http_code)
@@ -142,8 +139,8 @@ fn reply_with_status_code(http_code:StatusCode) -> HttpResponse{
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let config = fs::read_to_string("config.json")
-        .expect("Should have been able to read the file");
+    let config = fs::read_to_string("server_config.json")
+        .expect("Should have been able to read the file server_config.json");
     let conf:Config =  serde_json::from_str(&config).unwrap();
     let token = conf.Token.clone();
     let host = conf.Host.clone();

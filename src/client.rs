@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 extern crate clipboard;
 use clipboard::ClipboardProvider;
 use clipboard::ClipboardContext;
-use std::{fs, thread,time};
+use std::{fs, thread,time, thread::JoinHandle};
 use serde::{Deserialize};
 use reqwest::blocking::Client;
 mod aes_encryption;
@@ -76,7 +76,7 @@ fn render_ui(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<St
 	render_rectangle(width, heights, 0, 0);
 	render_header(width-1,heights,1,1,"Secure Clipboard",'░');
 	if heights > 4{
-	    render_header(width-1, heights,1,heights/2,"Drag and drop a file to send, CTRL + R to receive, CTRL + Q to quit",'═');
+	    render_header(width-1, heights,1,heights/2,"Drag and drop a file to send, CTRL + R to receive, CTRL + C to quit",'═');
 	    render_header(width-1,heights,1,heights*3/4,"Log:",'░');
 	} if heights > 9{
 	    match log.try_lock(){
@@ -205,13 +205,13 @@ fn clear_up_path(raw: String) -> String{
     result
 }
 
-fn watch_clipboard(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<String>>>){
+fn watch_clipboard(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<String>>>, tui_handler:&JoinHandle<()>){
     let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
     let key = aes_encryption::aes_encryption::get_key(config.clone().lock().unwrap().clone().Passkey);
     let mut prev_local_clipboard_hash = String::new();
     let mut prev_remote_clipboard_hash = String::new();
     let mut temp_vec:Vec<u8> = Vec::new();
-    loop {
+    while !tui_handler.is_finished() {
         thread::sleep(time::Duration::from_secs(1));
         let tmp = ctx.get_contents();
 	match tmp{
@@ -257,7 +257,9 @@ fn watch_clipboard(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<
 		    prev_remote_clipboard_hash = new_remote_hash;
 	    } // eprintln!("Error getting clipboard: {}", err)
 	}	
-	}
+    }
+    println!("\r\n Quiting main thread...\n");
+    
   }
 
 fn get_text_hash(conf:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<String>>>) -> String {
@@ -365,20 +367,30 @@ fn form_url(conf: Arc<Mutex<Config>>, endpoint:&str) -> String {
 }
 
 fn main() {
-    let config = fs::read_to_string("config.json")
+    let config = fs::read_to_string("client_config.json")
         .expect("Should have been able to read the file");
     let conf:Config =  serde_json::from_str(&config).unwrap();
     let config_mutex = Arc::new(Mutex::new(conf.clone()));
     let log:Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     let log2 = Arc::clone(&log);
     let config_mutex_copy = Arc::clone(&config_mutex);
-    let http_client = Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let cert_file = std::fs::read("cert.pem");
+    let cert: reqwest::Certificate;
+    let http_client:reqwest::blocking::Client;
+    match cert_file {
+	Ok(file) => {
+	    cert = reqwest::Certificate::from_pem(file.as_slice()).unwrap();
+	    http_client = Client::builder().add_root_certificate(cert).build().unwrap();
+	},
+	Err(err) => {
+	    http_client = Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+	    log.lock().unwrap().push("Ignoring certificate errors because cert.pem file is not provided.".to_string())
+	}
+    }
     let client_arc = Arc::new(http_client);
     let client_arc_copy = Arc::clone(&client_arc);
-    //let scan_task = thread::spawn(move || {tui_scan(Arc::clone(&config_mutex.clone()), Arc::clone(&client_arc.clone()))}) ;
-    //tx.send("Starting dojo\n".to_string()).unwrap_or_else(|_|{});
-    let _clip_task = thread::spawn(move ||{watch_clipboard(config_mutex_copy, client_arc_copy, log)});
+
     let _tui_task = thread::spawn(move || {render_ui(Arc::clone(&config_mutex.clone()), Arc::clone(&client_arc.clone()), log2)});
-    //_clip_task.join().unwrap();
-    _tui_task.join().unwrap();
+    let _clip_task = thread::spawn(move ||{watch_clipboard(config_mutex_copy, client_arc_copy, log, &_tui_task)});
+    _clip_task.join().unwrap();
 }
