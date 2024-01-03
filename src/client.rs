@@ -35,12 +35,13 @@ fn render_ui(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<St
     let mut stdout = stdout();
     let (mut width, mut heights) = terminal::size().unwrap();
     let mut filename = String::new();
+    let mut temp = String::new();
     let mut  quit = false;
     _ = enable_raw_mode();
     execute!(stdout, EnableBracketedPaste).unwrap_or_default();
     _= stdout.execute(terminal::Clear(terminal::ClearType::All));
     while !quit{
-	if  poll(Duration::from_millis(300 as u64)).unwrap(){
+	if  poll(Duration::from_millis(100 as u64)).unwrap(){
 	    match read(){
 		Ok(ev) => match ev{
 		    Event::Resize(w, h) => { width = w; heights = h},
@@ -52,15 +53,31 @@ fn render_ui(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<St
 				}
 				if x  == 'r' && key_event.modifiers.contains(KeyModifiers::CONTROL){
 				    handle_receive_file(config.clone(), client.clone(), key.clone(), log.clone());
+				} else if !key_event.modifiers.contains(KeyModifiers::CONTROL) {
+				    temp.push(x);
 				}
+			    },
+			    KeyCode::Backspace => {
+				let len = temp.len();
+				if len > 0{
+				    temp.pop();
+				} else {
+				    temp.clear();
+				}
+			    },
+			    KeyCode::Enter => {
+				filename = temp.clone();
+				temp.clear();
+				handle_sending_file(filename.clone(), config.clone(), client.clone(), key.clone(), log.clone());
 			    },
 			_ => ()
 			}
 		    },
-		    #[cfg(feature = "bracketed-paste")]
+		    
 		    Event::Paste(path) => {
 			filename.clear();
 			filename.push_str(&path);
+			temp = filename.clone();
 			match log.try_lock(){
 			    Ok(mut res) =>{
 				res.push(format!("Sending file: {}",filename.clone()))
@@ -76,8 +93,10 @@ fn render_ui(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<St
 	}
 	render_rectangle(width, heights, 0, 0);
 	render_header(width-1,heights,1,1,"Secure Clipboard",'░');
-	if heights > 4{
-	    render_header(width-1, heights,1,heights/2,"Drag and drop a file to send, CTRL + R to receive, CTRL + C to quit",'═');
+	if heights > 6{
+	    render_header(width-1, heights,1,heights/2 -1,"Drag and drop a file or enter file path to send and hit enter,",'░');
+	    render_header(width-1, heights,1,heights/2,"CTRL + R to receive, CTRL + C to quit",'░');
+    	    render_text(1, heights/2 +1  , &format!("┆FILE PATH┆⇒{}", temp));
 	    render_header(width-1,heights,1,heights*3/4,"Log:",'░');
 	} if heights > 9{
 	    match log.try_lock(){
