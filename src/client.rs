@@ -55,7 +55,7 @@ fn render_ui(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<St
 				if x  == 'r' && key_event.modifiers.contains(KeyModifiers::CONTROL){
 				    changes = true;
 				    handle_receive_file(config.clone(), client.clone(), key.clone(), log.clone());
-				} else if !key_event.modifiers.contains(KeyModifiers::CONTROL) {
+				} else if key_event.kind == KeyEventKind::Press &&  !key_event.modifiers.contains(KeyModifiers::CONTROL) {
 				    temp.push(x);
 				    changes = true;
 				}
@@ -122,7 +122,6 @@ fn render_ui(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<St
 	    stdout.flush();
             changes = false;
 	}
-	thread::sleep(Duration::from_millis(100 as u64));
     }
     
     _ = disable_raw_mode();
