@@ -37,7 +37,7 @@ fn render_ui(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<St
     let mut filename = String::new();
     let mut  quit = false;
     _ = enable_raw_mode();
-    execute!(stdout, EnableBracketedPaste).unwrap();
+    execute!(stdout, EnableBracketedPaste).unwrap_or_default();
     _= stdout.execute(terminal::Clear(terminal::ClearType::All));
     while !quit{
 	if  poll(Duration::from_millis(300 as u64)).unwrap(){
@@ -57,6 +57,7 @@ fn render_ui(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<St
 			_ => ()
 			}
 		    },
+		    #[cfg(feature = "bracketed-paste")]
 		    Event::Paste(path) => {
 			filename.clear();
 			filename.push_str(&path);
