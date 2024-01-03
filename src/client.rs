@@ -37,6 +37,7 @@ fn render_ui(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<St
     let mut filename = String::new();
     let mut temp = String::new();
     let mut  quit = false;
+    let mut changes = true;
     _ = enable_raw_mode();
     execute!(stdout, EnableBracketedPaste).unwrap_or_default();
     _= stdout.execute(terminal::Clear(terminal::ClearType::All));
@@ -44,7 +45,7 @@ fn render_ui(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<St
 	if  poll(Duration::from_millis(100 as u64)).unwrap(){
 	    match read(){
 		Ok(ev) => match ev{
-		    Event::Resize(w, h) => { width = w; heights = h},
+		    Event::Resize(w, h) => { width = w; heights = h; changes = true},
 		    Event::Key(key_event) => {
 			match key_event.code{
 			    KeyCode::Char(x) => {
@@ -52,12 +53,15 @@ fn render_ui(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<St
 				     quit = true;
 				}
 				if x  == 'r' && key_event.modifiers.contains(KeyModifiers::CONTROL){
+				    changes = true;
 				    handle_receive_file(config.clone(), client.clone(), key.clone(), log.clone());
 				} else if !key_event.modifiers.contains(KeyModifiers::CONTROL) {
 				    temp.push(x);
+				    changes = true;
 				}
 			    },
 			    KeyCode::Backspace => {
+			        changes = true;
 				let len = temp.len();
 				if len > 0{
 				    temp.pop();
@@ -66,6 +70,7 @@ fn render_ui(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<St
 				}
 			    },
 			    KeyCode::Enter => {
+				changes = true;
 				filename = temp.clone();
 				temp.clear();
 				handle_sending_file(filename.clone(), config.clone(), client.clone(), key.clone(), log.clone());
@@ -75,6 +80,7 @@ fn render_ui(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<St
 		    },
 		    
 		    Event::Paste(path) => {
+			changes = true;
 			filename.clear();
 			filename.push_str(&path);
 			temp = filename.clone();
@@ -91,29 +97,31 @@ fn render_ui(config:Arc<Mutex<Config>>, client:Arc<Client>, log:Arc<Mutex<Vec<St
 		Err(_) => ()
 	    }   
 	}
-	render_rectangle(width, heights, 0, 0);
-	render_header(width-1,heights,1,1,"Secure Clipboard",'░');
-	if heights > 6{
-	    render_header(width-1, heights,1,heights/2 -1,"Drag and drop a file or enter file path to send and hit enter,",'░');
-	    render_header(width-1, heights,1,heights/2,"CTRL + R to receive, CTRL + C to quit",'░');
-    	    render_text(1, heights/2 +1  , &format!("┆FILE PATH┆⇒{}", temp));
-	    render_header(width-1,heights,1,heights*3/4,"Log:",'░');
-	} if heights > 9{
-	    match log.try_lock(){
-		Ok(mut res) =>{
-		    let temp = String::new();
-		    render_text(1, heights*3/4 +1, &res.last().unwrap_or_else(||{&temp}));
-		    if res.len() > 2 {
-			render_text(1, heights*3/4 +2, &res.get(res.len()-2).unwrap_or_else(||{&temp}));
-			render_text(1, heights*3/4 +3, &res.get(res.len()-3).unwrap_or_else(||{&temp}));
-		    }
-		},
-		Err(_) => ()
-	}
+	if changes{
+	    render_rectangle(width, heights, 0, 0);
+	    render_header(width-1,heights,1,1,"Secure Clipboard",'░');
+	    if heights > 6{
+		render_header(width-1, heights,1,heights/2 -1,"Drag and drop a file or enter file path to send and hit enter,",'░');
+		render_header(width-1, heights,1,heights/2,"CTRL + R to receive, CTRL + C to quit",'░');
+    		render_text(1, heights/2 +1  , &format!("┆FILE PATH┆⇒{}", temp));
+		render_header(width-1,heights,1,heights*3/4,"Log:",'░');
+	    } if heights > 9{
+		match log.try_lock(){
+		    Ok(mut res) =>{
+			let temp = String::new();
+			render_text(1, heights*3/4 +1, &res.last().unwrap_or_else(||{&temp}));
+			if res.len() > 2 {
+			    render_text(1, heights*3/4 +2, &res.get(res.len()-2).unwrap_or_else(||{&temp}));
+			    render_text(1, heights*3/4 +3, &res.get(res.len()-3).unwrap_or_else(||{&temp}));
+			}
+		    },
+		    Err(_) => ()
+		}
 
+	    }
+	    stdout.flush();
+            changes = false;
 	}
-	
-	stdout.flush();
 	thread::sleep(Duration::from_millis(100 as u64));
     }
     
